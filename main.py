@@ -5,18 +5,13 @@ from __future__ import print_function, division
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim import lr_scheduler
 from torch.utils.data import Dataset, DataLoader
-from torchvision import datasets, models, transforms
-import torchvision
+from torch.utils.data.sampler import SubsetRandomSampler
 import time
-import os
-import copy
 import matplotlib.pyplot as plt
-import pandas as pd
 import pickle as pk
 import numpy as np
-from model import build_model, compile_model, augment_data, fit
+from model import Net
 
 
 class CovidDatasetTrain(Dataset):
@@ -48,9 +43,26 @@ def make_data_loaders():
     train_dataset = CovidDatasetTrain(train_imgs, train_labels)
     test_dataset = CovidDatasetTest(test_imgs)
 
+    batch_size = 5
+    validation_split = 0.1
+    random_seed = 39
+
+    # Creating data indices for training and validation splits:
+    train_size = len(train_dataset)
+    indices = list(range(train_size))
+    split = int(np.floor(validation_split * train_size))
+    np.random.seed(random_seed)
+    np.random.shuffle(indices)
+    train_indices, val_indices = indices[split:], indices[:split]
+
+    # Creating PT data samplers and loaders:
+    train_sampler = SubsetRandomSampler(train_indices)
+    valid_sampler = SubsetRandomSampler(val_indices)
+
     return {
-        "train": DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=6),
-        "test": DataLoader(test_dataset, batch_size=2, shuffle=False, num_workers=6),
+        "train": DataLoader(train_dataset, batch_size=batch_size, num_workers=6, sampler=train_sampler),
+        "validation": DataLoader(train_dataset, batch_size=batch_size, num_workers=6, sampler=valid_sampler),
+        "test": DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=6),
     }
 
 
@@ -63,43 +75,76 @@ if __name__ == '__main__':
 
     data_loaders = make_data_loaders()
     dataset_sizes = {'train': len(data_loaders['train'].dataset), 'test':len(data_loaders['test'].dataset)}
+    print(dataset_sizes)
 
     class_names = ['covid', 'background']
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    x_train, y_train = data_loaders['train']
-    x_test, y_test = data_loaders['test']
-    # x_train, y_train = x_train.to(device), y_train.to(device)
-    # x_test, y_test = x_test.to(device), y_test.to(device)
-    #
-    # model = build_model(x_train)
-    # compile_model(model)
-    # datagen = augment_data()
-    # history = fit(model, x_train, y_train, x_test, y_test, datagen)
-    #
-    # plt.plot(history.history['acc'], label='training accuracy')
-    # plt.plot(history.history['val_acc'], label='testing accuracy')
-    # plt.title('Accuracy')
-    # plt.xlabel('epochs')
-    # plt.ylabel('accuracy')
-    # plt.legend()
-    #
-    # plt.plot(history.history['loss'], label='training loss')
-    # plt.plot(history.history['val_loss'], label='testing loss')
-    # plt.title('Loss')
-    # plt.xlabel('epochs')
-    # plt.ylabel('loss')
-    # plt.legend()
+    model = Net()
+    model.to(device)
 
-    # max_epochs = 100
-    # for epoch in range(max_epochs):
-    #     for local_batch, local_labels in data_loaders['train']:
-    #         local_batch, local_labels = local_batch.to(device), local_labels.to(device)
-    #
-    #         model = build_model(local_batch)
-    #         compile_model(model)
-    #         datagen = augment_data()
-    #         fit(model, local_batch, local_labels,)
+    # training
+    start_time = time.time()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.0005, momentum=0.9)
+    for epoch in range(10):  # loop over the dataset multiple times
+        running_loss = 0.0
+        for i, data in enumerate(data_loaders['train'], 0):
+            # get the inputs; data is a list of [inputs, labels]
+            inputs, labels = data[0].to(device), data[1].to(device)
+
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            # print statistics
+            running_loss += loss.item()
+            if i % 5 == 4:  # print every 2000 mini-batches
+                print('[%d, %5d] loss: %.3f' %
+                      (epoch + 1, i + 1, running_loss / 5))
+                running_loss = 0.0
+    print('Finished Training')
+    print('Trained for: ' + str(time.time()-start_time))
+
+    # prediction on validations
+    dataiter = iter(data_loaders['validation'])
+    images, labels = dataiter.next()
+
+    correct = 0
+    total = 0
+    predictions = []
+    with torch.no_grad():
+        for data in data_loaders['validation']:
+            images, labels = data[0].to(device), data[1].to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+            predictions.append(predicted)
+    print(predictions)
+    print('Accuracy of the network on the validation images: %d %%' % (100 * correct / total))
+
+    # prediction on test
+    model.eval()
+    dataiter = iter(data_loaders['test'])
+    images = dataiter.next()
+
+    predictions = []
+    with torch.no_grad():
+        for data in data_loaders['test']:
+            images = data.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            predictions.append(predicted)
+    print(predictions)
+    # print('Accuracy of the network on the validation images: %d %%' % (100 * correct / total))
+
+
 
 
 
