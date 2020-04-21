@@ -1,5 +1,5 @@
 # CovidAI
-Automatic Covid-19 detection using a deep learning model trained on patient X-rays.
+Automatic Covid-19 detection using a deep learning model trained on patient X-rays. <br />
 Team members: Ricky Ma, Kaiwen Hu
 
 ## Introduction
