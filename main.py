@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
+import torchvision
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
-import torchvision
 from torchvision import datasets, models, transforms
 import time
 import matplotlib.pyplot as plt
@@ -16,7 +16,6 @@ import pickle as pk
 import numpy as np
 import copy
 from PIL import Image
-from model import Net
 
 
 class CovidDatasetTrain(Dataset):
@@ -48,7 +47,7 @@ def make_data_loaders():
     train_dataset = CovidDatasetTrain(train_imgs, train_labels)
     test_dataset = CovidDatasetTest(test_imgs)
 
-    batch_size = 5
+    batch_size = 10
     validation_split = 0.1
     random_seed = 43
 
@@ -156,6 +155,14 @@ def predict(model):
     print(predictions)
 
 
+def imshow():
+    inputs, labels = next(iter(data_loaders['train']))
+    out = torchvision.utils.make_grid(inputs)
+    sample_img = transforms.ToPILImage(mode="RGB")(-out * 255)
+    sample_img.show()
+    print(labels)
+
+
 if __name__ == '__main__':
     plt.ion()  # interactive mode
 
@@ -171,6 +178,9 @@ if __name__ == '__main__':
 
     class_names = ['covid', 'background']
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    imshow()
+
 
     # ResNet18
     # model_ft = models.resnet18(pretrained=True)
@@ -199,16 +209,16 @@ if __name__ == '__main__':
     # predict(model_conv)
 
     # DenseNet161
-    model_ft = models.densenet161(pretrained=True)
-    num_ftrs = model_ft.classifier.in_features
-    model_ft.classifier = nn.Linear(num_ftrs, 2)
-    model_ft = model_ft.to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9)
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
-
-    model_ft = fit(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=25)
-    predict(model_ft)
+    # model_ft = models.densenet161(pretrained=True, memory_efficient=True)
+    # num_ftrs = model_ft.classifier.in_features
+    # model_ft.classifier = nn.Linear(num_ftrs, 2)
+    # model_ft = model_ft.to(device)
+    # criterion = nn.CrossEntropyLoss()
+    # optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9)
+    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
+    #
+    # model_ft = fit(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=25)
+    # predict(model_ft)
 
 
 
