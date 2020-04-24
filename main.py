@@ -3,23 +3,22 @@
 
 from __future__ import print_function, division
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.optim import lr_scheduler
 import torchvision
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
-from torchvision import datasets, models, transforms
+from torchvision import transforms
 import time
 import matplotlib.pyplot as plt
 import pickle as pk
 import numpy as np
 import copy
-from PIL import Image
+import models
+import argparse
 
 
 class CovidDatasetTrain(Dataset):
     """Face Landmarks dataset."""
+
     def __init__(self, imgs, labels):
         self.imgs = imgs
         self.labels = labels
@@ -33,6 +32,7 @@ class CovidDatasetTrain(Dataset):
 
 class CovidDatasetTest(Dataset):
     """Face Landmarks dataset."""
+
     def __init__(self, imgs):
         self.imgs = imgs
 
@@ -48,7 +48,7 @@ def make_data_loaders():
     test_dataset = CovidDatasetTest(test_imgs)
 
     batch_size = 10
-    validation_split = 0.1
+    validation_split = 0.2
     random_seed = 43
 
     # Creating data indices for training and validation splits:
@@ -77,7 +77,7 @@ def fit(model, criterion, optimizer, scheduler, num_epochs=25):
     best_acc = 0.0
 
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+        print('Epoch {}/{}'.format(epoch + 1, num_epochs))
         print('-' * 10)
 
         # Each epoch has a training and validation phase
@@ -85,7 +85,7 @@ def fit(model, criterion, optimizer, scheduler, num_epochs=25):
             if phase == 'train':
                 model.train()  # Set model to training mode
             else:
-                model.eval()   # Set model to evaluate mode
+                model.eval()  # Set model to evaluate mode
 
             running_loss = 0.0
             running_corrects = 0
@@ -147,7 +147,6 @@ def predict(model):
     with torch.no_grad():
         for i, (inputs) in enumerate(data_loaders['test']):
             inputs = inputs.to(device)
-
             outputs = model(inputs)
             _, preds = torch.max(outputs, 1)
             predictions.append(preds)
@@ -164,6 +163,12 @@ def imshow():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-m', required=True)
+    parser.add_argument('-img', required=False, action='store_true')
+    io_args = parser.parse_args()
+    model = io_args.m
+
     plt.ion()  # interactive mode
 
     train_imgs = pk.load(open("data/train_images_512.pk", 'rb'), encoding='bytes')
@@ -171,56 +176,42 @@ if __name__ == '__main__':
     test_imgs = pk.load(open("data/test_images_512.pk", 'rb'), encoding='bytes')
 
     data_loaders = make_data_loaders()
-    dataset_sizes = {'train': 63,
-                     'validation': 7,
+    dataset_sizes = {'train': 56,
+                     'validation': 14,
                      'test': len(data_loaders['test'].dataset)}
     print(dataset_sizes)
 
     class_names = ['covid', 'background']
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    imshow()
+    inputs, labels = next(iter(data_loaders['train']))
+    print("Training sample labels:" + str(labels))
+    inputs, labels = next(iter(data_loaders['validation']))
+    print("Validation sample labels:" + str(labels))
 
+    if io_args.img:
+        imshow()
 
-    # ResNet18
-    # model_ft = models.resnet18(pretrained=True)
-    # num_ftrs = model_ft.fc.in_features
-    # model_ft.fc = nn.Linear(num_ftrs, 2)
-    # model_ft = model_ft.to(device)
-    # criterion = nn.CrossEntropyLoss()
-    # optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9)
-    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
-    #
-    # model_ft = fit(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=30)
-    # predict(model_ft)
+    if model == 'res18ft':
+        # ResNet18
+        model, criterion, optimizer, scheduler = models.resNet18_ft()
+        model_ft = fit(model, criterion, optimizer, scheduler, num_epochs=30)
+        predict(model_ft)
 
+    if model == 'res18conv':
+        # ResNet18 Conv
+        model, criterion, optimizer, scheduler = models.resNet18_conv()
+        model_conv = fit(model, criterion, optimizer, scheduler, num_epochs=30)
+        predict(model_conv)
 
-    # model_conv = torchvision.models.resnet18(pretrained=True)
-    # for param in model_conv.parameters():
-    #     param.requires_grad = False
-    # num_ftrs = model_conv.fc.in_features
-    # model_conv.fc = nn.Linear(num_ftrs, 2)
-    # model_conv = model_conv.to(device)
-    # criterion = nn.CrossEntropyLoss()
-    # optimizer_conv = optim.SGD(model_conv.fc.parameters(), lr=0.001, momentum=0.9)
-    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_conv, step_size=7, gamma=0.1)
-    #
-    # model_conv = fit(model_conv, criterion, optimizer_conv, exp_lr_scheduler, num_epochs=25)
-    # predict(model_conv)
+    if model == 'res152conv':
+        # ResNet152 Conv
+        model, criterion, optimizer, scheduler = models.resNet152_conv()
+        model_conv = fit(model, criterion, optimizer, scheduler, num_epochs=30)
+        predict(model_conv)
 
-    # DenseNet161
-    # model_ft = models.densenet161(pretrained=True, memory_efficient=True)
-    # num_ftrs = model_ft.classifier.in_features
-    # model_ft.classifier = nn.Linear(num_ftrs, 2)
-    # model_ft = model_ft.to(device)
-    # criterion = nn.CrossEntropyLoss()
-    # optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9)
-    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
-    #
-    # model_ft = fit(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=25)
-    # predict(model_ft)
-
-
-
-
-
+    if model == 'dense161':
+        # DenseNet161
+        model, criterion, optimizer, scheduler = models.denseNet161_ft()
+        model_ft = fit(model, criterion, optimizer, scheduler, num_epochs=30)
+        predict(model_ft)
