@@ -215,3 +215,15 @@ if __name__ == '__main__':
         model, criterion, optimizer, scheduler = models.denseNet161_ft()
         model_ft = fit(model, criterion, optimizer, scheduler, num_epochs=30)
         predict(model_ft)
+
+    if model == 'vgg19':
+        # VGG 19-layer model
+        model, criterion, optimizer, scheduler = models.vgg19()
+        model_ft = fit(model, criterion, optimizer, scheduler, num_epochs=30)
+        predict(model_ft)
+
+    if model == 'alex':
+        # AlexNet
+        model, criterion, optimizer, scheduler = models.alexNet()
+        model_ft = fit(model, criterion, optimizer, scheduler, num_epochs=30)
+        predict(model_ft)
