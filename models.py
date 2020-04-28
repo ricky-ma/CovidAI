@@ -52,7 +52,7 @@ def denseNet161_ft():
     model_ft.classifier = nn.Linear(num_ftrs, 2)
     model_ft = model_ft.to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.01, momentum=0.9)
+    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.01, momentum=0.9, nesterov=True)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
     return model_ft, criterion, optimizer_ft, exp_lr_scheduler
 
@@ -63,7 +63,7 @@ def vgg19():
     model_ft.classifier = nn.Linear(num_ftrs, 2)
     model_ft = model_ft.to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.01, momentum=0.9)
+    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.01, momentum=0.9, nesterov=True)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
     return model_ft, criterion, optimizer_ft, exp_lr_scheduler
 
@@ -74,7 +74,7 @@ def alexNet():
     model_ft.classifier = nn.Linear(num_ftrs, 2)
     model_ft = model_ft.to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.01, momentum=0.9)
+    optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.01, momentum=0.9, nesterov=True)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
     return model_ft, criterion, optimizer_ft, exp_lr_scheduler
 
